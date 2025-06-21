@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import AddResult from "./AddResult";
+import logo from "./assets/logo.png";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -25,31 +26,58 @@ export default function App() {
     localStorage.setItem("badmintonPlayers", JSON.stringify(newPlayers));
   };
 
-  if (!user) {
-    return (
-      <Login
-        setUser={setUser}
-        setPage={setPage}
-        players={players}
-        savePlayers={savePlayers}
-      />
-    );
-  }
+  const saveUser = (userObj) => {
+    setUser(userObj);
+    localStorage.setItem("badmintonUser", JSON.stringify(userObj));
+  };
 
-  if (page === "dashboard") {
-    return <Dashboard user={user} setPage={setPage} players={players} savePlayers={savePlayers} />;
-  }
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("badmintonUser");
+    setPage("login");
+  };
 
-  if (page === "addresult") {
-    return (
-      <AddResult
-        user={user}
-        setPage={setPage}
-        players={players}
-        savePlayers={savePlayers}
-      />
-    );
-  }
+  const deleteAccount = () => {
+    if (user && players[user.username]) {
+      const updatedPlayers = { ...players };
+      delete updatedPlayers[user.username];
+      savePlayers(updatedPlayers);
+    }
+    logout();
+  };
 
-  return null;
+  return (
+    <div style={{ textAlign: "center", marginTop: 40 }}>
+      <img src={logo} alt="โลโก้เว็บ" style={{ width: 150, marginBottom: 20 }} />
+      <h1>The Heavenly Kings of Badminton</h1>
+      {!user && (
+        <Login
+          setPage={setPage}
+          players={players}
+          savePlayers={savePlayers}
+          saveUser={saveUser}
+        />
+      )}
+
+      {user && page === "dashboard" && (
+        <Dashboard
+          user={user}
+          setPage={setPage}
+          players={players}
+          savePlayers={savePlayers}
+          logout={logout}
+          deleteAccount={deleteAccount}
+        />
+      )}
+
+      {user && page === "addresult" && (
+        <AddResult
+          user={user}
+          setPage={setPage}
+          players={players}
+          savePlayers={savePlayers}
+        />
+      )}
+    </div>
+  );
 }

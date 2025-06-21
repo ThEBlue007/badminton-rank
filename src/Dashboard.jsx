@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function Dashboard({ user, setPage, players, savePlayers }) {
+export default function Dashboard({ user, setPage, players, savePlayers, logout, deleteAccount }) {
   const [editingUser, setEditingUser] = useState(null);
   const [editScore, setEditScore] = useState("");
 
@@ -29,14 +29,10 @@ export default function Dashboard({ user, setPage, players, savePlayers }) {
     setEditScore("");
   };
 
-  // ลบบัญชีผู้ใช้
+  // ใช้ deleteAccount function จาก props
   const handleDeleteAccount = () => {
     if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) {
-      const newPlayers = { ...players };
-      delete newPlayers[user.username];
-      savePlayers(newPlayers);
-      localStorage.removeItem("badmintonUser");
-      setPage("login");
+      deleteAccount();
     }
   };
 
@@ -50,10 +46,7 @@ export default function Dashboard({ user, setPage, players, savePlayers }) {
         กรอกผลการแข่งขัน
       </button>
       <button
-        onClick={() => {
-          localStorage.removeItem("badmintonUser");
-          setPage("login");
-        }}
+        onClick={logout}
         style={{ padding: 10, backgroundColor: "#e53e3e", color: "white" }}
       >
         ออกจากระบบ

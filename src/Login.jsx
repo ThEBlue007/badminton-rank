@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function Login({ setUser, setPage, players, savePlayers }) {
+export default function Login({ setPage, players, savePlayers, saveUser }) {
   const [username, setUsername] = useState("");
   const [badmintonName, setBadmintonName] = useState("");
   const [error, setError] = useState("");
@@ -19,11 +19,8 @@ export default function Login({ setUser, setPage, players, savePlayers }) {
       [username]: { badmintonName, score: 0 },
     };
     savePlayers(newPlayers);
-    setUser({ username, badmintonName });
-    localStorage.setItem(
-      "badmintonUser",
-      JSON.stringify({ username, badmintonName })
-    );
+    const userData = { username, badmintonName };
+    saveUser(userData);
     setPage("dashboard");
   };
 
@@ -36,11 +33,8 @@ export default function Login({ setUser, setPage, players, savePlayers }) {
       setError("ไม่พบ Username นี้ กรุณาลงทะเบียนก่อน");
       return;
     }
-    setUser({ username, badmintonName: players[username].badmintonName });
-    localStorage.setItem(
-      "badmintonUser",
-      JSON.stringify({ username, badmintonName: players[username].badmintonName })
-    );
+    const userData = { username, badmintonName: players[username].badmintonName };
+    saveUser(userData);
     setPage("dashboard");
   };
 
@@ -58,7 +52,7 @@ export default function Login({ setUser, setPage, players, savePlayers }) {
         style={{ width: "100%", padding: 8, marginBottom: 12 }}
         placeholder="ชื่อในวงการแบด"
         value={badmintonName}
-        onChange={(e) => setBadmintonName(e.target.value.trim())}
+        onChange={(e) => setBadmintonName(e.target.value)}
       />
       <button
         style={{ width: "100%", padding: 10, backgroundColor: "#2b6cb0", color: "white", marginBottom: 8 }}
