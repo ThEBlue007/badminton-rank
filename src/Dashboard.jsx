@@ -83,7 +83,7 @@ export default function Dashboard({ user, setPage, logout }) {
 
   return (
     <div style={{ maxWidth: 700, margin: "auto", padding: 20, marginTop: 40 }}>
-      <h2>สวัสดี, {user.badmintonName}</h2>
+      <h2>สวัสดี, {p.badmintonName}</h2>
       <button
         onClick={() => setPage("addresult")}
         style={{ marginRight: 8, padding: 10, backgroundColor: "#38a169", color: "white" }}
