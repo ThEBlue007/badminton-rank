@@ -1,12 +1,14 @@
 import React, { useState } from "react";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
-export default function AddResult({ user, setPage, players, savePlayers }) {
+export default function AddResult({ user, setPage }) {
   const [points, setPoints] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError("");
     setSuccess("");
     const p = parseFloat(points);
@@ -15,28 +17,47 @@ export default function AddResult({ user, setPage, players, savePlayers }) {
       setError("กรุณากรอกแต้มและเวลาให้ถูกต้อง");
       return;
     }
-    const oldScore = players[user.username]?.score || 0;
-    const newScore = oldScore + (p * 500) / t;
 
-    const newPlayers = {
-      ...players,
-      [user.username]: {
-        badmintonName: players[user.username].badmintonName,
-        score: newScore,
-      },
-    };
-    savePlayers(newPlayers);
-    setSuccess(`บันทึกคะแนนสำเร็จ! คะแนนใหม่: ${newScore.toFixed(2)}`);
-    setPoints("");
-    setTimeMinutes("");
+    try {
+      const playerRef = doc(db, "players", user.username);
+      const playerSnap = await getDoc(playerRef);
+
+      if (!playerSnap.exists()) {
+        setError("ไม่พบข้อมูลผู้เล่นในระบบ");
+        return;
+      }
+
+      const oldScore = playerSnap.data().score || 0;
+      const newScore = oldScore + (p * 500) / t;
+
+      await updateDoc(playerRef, { score: newScore });
+
+      setSuccess(`บันทึกคะแนนสำเร็จ! คะแนนใหม่: ${newScore.toFixed(2)}`);
+      setPoints("");
+      setTimeMinutes("");
+    } catch (err) {
+      console.error(err);
+      setError("เกิดข้อผิดพลาดในการบันทึกคะแนน");
+    }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "auto", padding: 20, marginTop: 40, border: "1px solid #ccc", borderRadius: 8 }}>
+    <div
+      style={{
+        maxWidth: 400,
+        margin: "auto",
+        padding: 20,
+        marginTop: 40,
+        border: "1px solid #ccc",
+        borderRadius: 8,
+      }}
+    >
       <h2>กรอกผลการแข่งขัน</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
       {success && <p style={{ color: "green" }}>{success}</p>}
-      <p>ผู้เล่น: <b>{players[user.username].badmintonName}</b></p>
+      <p>
+        ผู้เล่น: <b>{user.badmintonName}</b>
+      </p>
       <input
         type="number"
         placeholder="แต้มที่ได้"

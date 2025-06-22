@@ -4,12 +4,17 @@ export default function Dashboard({ user, setPage, players, savePlayers, logout,
   const [editingUser, setEditingUser] = useState(null);
   const [editScore, setEditScore] = useState("");
 
+  // เช็คว่าถ้า players เป็น null หรือว่าง ให้แสดง Loading
+  if (!players || Object.keys(players).length === 0) {
+    return <div>Loading...</div>;
+  }
+
   // สร้างอันดับเรียงจากคะแนนมากไปน้อย
   const ranking = Object.entries(players)
     .map(([username, info]) => ({
       username,
-      badmintonName: info.badmintonName,
-      score: info.score,
+      badmintonName: info?.badmintonName || "ไม่ระบุ",
+      score: info?.score || 0,
     }))
     .sort((a, b) => b.score - a.score);
 
@@ -38,7 +43,7 @@ export default function Dashboard({ user, setPage, players, savePlayers, logout,
 
   return (
     <div style={{ maxWidth: 600, margin: "auto", padding: 20, marginTop: 40 }}>
-      <h2>สวัสดี, {user.badmintonName}</h2>
+      <h2>สวัสดี, {user?.badmintonName || "ผู้เล่น"}</h2>
       <button
         onClick={() => setPage("addresult")}
         style={{ marginRight: 8, padding: 10, backgroundColor: "#38a169", color: "white" }}

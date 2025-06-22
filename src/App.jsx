@@ -55,7 +55,7 @@ export default function App() {
           setPage={setPage}
           players={players}
           savePlayers={savePlayers}
-          saveUser={saveUser}
+          saveUser={saveUser}  // ส่ง saveUser เข้าไป
         />
       )}
 
