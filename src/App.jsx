@@ -9,25 +9,26 @@ import AddResult from "./AddResult";
 import logo from "./assets/logo.png";
 
 export default function App() {
-  const [user, setUser] = useState(null); // user object from firebase auth
-  const [playerData, setPlayerData] = useState(null); // user data from firestore
+  const [user, setUser] = useState(null); // Firebase Auth user object
+  const [playerData, setPlayerData] = useState(null); // Data from Firestore (badmintonName, score, etc.)
   const [page, setPage] = useState("login");
 
-  // Listen for auth state changes (login/logout)
   useEffect(() => {
+    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        // โหลดข้อมูลผู้เล่นจาก firestore
+
+        // Load user data from Firestore "players" collection
         const docRef = doc(db, "players", firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setPlayerData(docSnap.data());
           setPage("dashboard");
         } else {
-          // ถ้ายังไม่มีข้อมูลผู้เล่นใน firestore
+          // If no data in Firestore yet, you might want to redirect to registration or create default data
           setPlayerData(null);
-          setPage("login");
+          setPage("login"); // Or you can create an onboarding flow here
         }
       } else {
         setUser(null);
@@ -35,40 +36,45 @@ export default function App() {
         setPage("login");
       }
     });
+
     return () => unsubscribe();
   }, []);
 
-  if (page === "login") {
+  // กรณีโหลดข้อมูลยังไม่เสร็จ
+  if (page !== "login" && (!user || !playerData)) {
     return (
       <div style={{ textAlign: "center", marginTop: 40 }}>
-        <img src={logo} alt="โลโก้เว็บ" style={{ width: 150, marginBottom: 20 }} />
-        <h1>The Heavenly Kings of Badminton</h1>
-        <Login setPage={setPage} />
+        <p>Loading...</p>
       </div>
     );
   }
 
-  if (page === "dashboard" && user && playerData) {
-    return (
-      <Dashboard
-        user={user}
-        playerData={playerData}
-        setPage={setPage}
-        setPlayerData={setPlayerData}
-      />
-    );
-  }
+  return (
+    <div style={{ textAlign: "center", marginTop: 40 }}>
+      <img src={logo} alt="โลโก้เว็บ" style={{ width: 150, marginBottom: 20 }} />
+      <h1>The Heavenly Kings of Badminton</h1>
 
-  if (page === "addresult" && user && playerData) {
-    return (
-      <AddResult
-        user={user}
-        playerData={playerData}
-        setPage={setPage}
-        setPlayerData={setPlayerData}
-      />
-    );
-  }
+      {page === "login" && (
+        <Login setUser={setUser} setPage={setPage} />
+      )}
 
-  return <div>Loading...</div>;
+      {page === "dashboard" && user && playerData && (
+        <Dashboard
+          user={user}
+          playerData={playerData}
+          setPage={setPage}
+          setPlayerData={setPlayerData}
+        />
+      )}
+
+      {page === "addresult" && user && playerData && (
+        <AddResult
+          user={user}
+          playerData={playerData}
+          setPage={setPage}
+          setPlayerData={setPlayerData}
+        />
+      )}
+    </div>
+  );
 }
