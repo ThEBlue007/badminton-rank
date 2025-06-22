@@ -1,85 +1,89 @@
 import React, { useState, useEffect } from "react";
-import { auth, db } from "./firebase";
-import { signOut } from "firebase/auth";
-import { doc, setDoc, getDocs, collection } from "firebase/firestore";
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  updateDoc, 
+  deleteDoc 
+} from "firebase/firestore";
+import { db } from "./firebase"; // ไฟล์ที่ตั้งค่า Firebase
+import { auth } from "./firebase";
 
-export default function Dashboard({ user, playerData, setPage, setPlayerData }) {
-  const [ranking, setRanking] = useState([]);
-  const [editingScoreUser, setEditingScoreUser] = useState(null);
+export default function Dashboard({ user, setPage, logout }) {
+  const [players, setPlayers] = useState({});
+  const [editingUser, setEditingUser] = useState(null);
   const [editScore, setEditScore] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // โหลดข้อมูลอันดับผู้เล่นจาก Firestore
+  // โหลดข้อมูล players จาก Firestore แบบ realtime
   useEffect(() => {
-    async function fetchRanking() {
-      const querySnapshot = await getDocs(collection(db, "players"));
-      let playersArray = [];
-      querySnapshot.forEach((docSnap) => {
-        playersArray.push({ id: docSnap.id, ...docSnap.data() });
+    const unsubscribe = onSnapshot(collection(db, "players"), (snapshot) => {
+      const playersData = {};
+      snapshot.forEach((doc) => {
+        playersData[doc.id] = doc.data();
       });
-      playersArray.sort((a, b) => b.score - a.score);
-      setRanking(playersArray);
-    }
-    fetchRanking();
+      setPlayers(playersData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error loading players: ", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // บันทึกคะแนนที่แก้ไข
-  const handleSaveScore = async (uid) => {
+  // บันทึกคะแนนที่แก้ไขลง Firestore
+  const handleSave = async (username) => {
     const scoreNum = parseFloat(editScore);
     if (isNaN(scoreNum) || scoreNum < 0) {
       alert("กรุณากรอกคะแนนเป็นตัวเลขและมากกว่า 0");
       return;
     }
+
     try {
-      await setDoc(doc(db, "players", uid), {
-        ...ranking.find((p) => p.id === uid),
-        score: scoreNum,
-      });
-      setEditingScoreUser(null);
+      const playerRef = doc(db, "players", username);
+      await updateDoc(playerRef, { score: scoreNum });
+      setEditingUser(null);
       setEditScore("");
-      // อัปเดตข้อมูล playerData ถ้ากำลังแก้ของตัวเอง
-      if (uid === user.uid) {
-        setPlayerData((prev) => ({ ...prev, score: scoreNum }));
-      }
-      // รีโหลดอันดับ
-      const querySnapshot = await getDocs(collection(db, "players"));
-      let playersArray = [];
-      querySnapshot.forEach((docSnap) => {
-        playersArray.push({ id: docSnap.id, ...docSnap.data() });
-      });
-      playersArray.sort((a, b) => b.score - a.score);
-      setRanking(playersArray);
     } catch (error) {
       alert("เกิดข้อผิดพลาดในการบันทึกคะแนน");
       console.error(error);
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setPage("login");
-  };
-
-  const handleDeleteAccount = async () => {
-    // ลบบัญชีใน Firestore และ Firebase Auth (ถ้าต้องการเพิ่ม)
-    if (window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้?")) {
+  // ลบบัญชีผู้ใช้จาก Firestore และถ้าคือตัวเองก็ logout
+  const handleDeleteUser = async (usernameToDelete) => {
+    if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีผู้ใช้ ${usernameToDelete}? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
       try {
-        // ลบข้อมูลใน Firestore
-        await db.collection("players").doc(user.uid).delete();
-        // ลบผู้ใช้จาก Firebase Auth (optional)
-        // await user.delete();
+        await deleteDoc(doc(db, "players", usernameToDelete));
 
-        await signOut(auth);
-        setPage("login");
+        if (usernameToDelete === user.username) {
+          // ลบบัญชีตัวเอง ให้ logout
+          logout();
+        }
       } catch (error) {
-        alert("ไม่สามารถลบบัญชีได้");
+        alert("ลบบัญชีไม่สำเร็จ โปรดลองใหม่อีกครั้ง");
         console.error(error);
       }
     }
   };
 
+  if (loading) {
+    return <div style={{ textAlign: "center", marginTop: 40 }}>Loading...</div>;
+  }
+
+  // แปลง players เป็น array และจัดอันดับ
+  const ranking = Object.entries(players)
+    .map(([username, info]) => ({
+      username,
+      badmintonName: info.badmintonName || "ไม่มีชื่อ",
+      score: info.score || 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+
   return (
-    <div style={{ maxWidth: 600, margin: "auto", padding: 20, marginTop: 40 }}>
-      <h2>สวัสดี, {playerData.badmintonName}</h2>
+    <div style={{ maxWidth: 700, margin: "auto", padding: 20, marginTop: 40 }}>
+      <h2>สวัสดี, {user.badmintonName}</h2>
       <button
         onClick={() => setPage("addresult")}
         style={{ marginRight: 8, padding: 10, backgroundColor: "#38a169", color: "white" }}
@@ -87,13 +91,11 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
         กรอกผลการแข่งขัน
       </button>
       <button
-        onClick={handleLogout}
+        onClick={logout}
         style={{ padding: 10, backgroundColor: "#e53e3e", color: "white" }}
       >
         ออกจากระบบ
       </button>
-      {/* ปุ่มลบบัญชีถ้าต้องการเปิดใช้งาน */}
-      {/* <button onClick={handleDeleteAccount}>ลบบัญชีผู้ใช้</button> */}
 
       <h3 style={{ marginTop: 30 }}>อันดับผู้เล่น</h3>
       <table
@@ -102,24 +104,32 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
         <thead>
           <tr style={{ backgroundColor: "#2b6cb0", color: "white" }}>
             <th style={{ border: "1px solid #ddd", padding: 8 }}>อันดับ</th>
+            
             <th style={{ border: "1px solid #ddd", padding: 8 }}>ชื่อวงการแบด</th>
-            <th style={{ border: "1px solid #ddd", padding: 8, textAlign: "right" }}>คะแนนสะสม</th>
-            <th style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>จัดการ</th>
+            <th style={{ border: "1px solid #ddd", padding: 8, textAlign: "right" }}>
+              คะแนนสะสม
+            </th>
+            <th style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>
+              จัดการ
+            </th>
           </tr>
         </thead>
         <tbody>
           {ranking.map((p, i) => (
             <tr
-              key={p.id}
+              key={p.username}
               style={{
                 backgroundColor: i % 2 === 0 ? "#ebf8ff" : "white",
                 color: "#2d3748",
               }}
             >
-              <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>{i + 1}</td>
+              <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>
+                {i + 1}
+              </td>
+              
               <td style={{ border: "1px solid #ddd", padding: 8 }}>{p.badmintonName}</td>
               <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "right" }}>
-                {editingScoreUser === p.id ? (
+                {editingUser === p.username ? (
                   <input
                     type="number"
                     value={editScore}
@@ -131,22 +141,34 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
                 )}
               </td>
               <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>
-                {editingScoreUser === p.id ? (
+                {editingUser === p.username ? (
                   <>
-                    <button onClick={() => handleSaveScore(p.id)} style={{ marginRight: 8 }}>
+                    <button
+                      onClick={() => handleSave(p.username)}
+                      style={{ marginRight: 8 }}
+                    >
                       บันทึก
                     </button>
-                    <button onClick={() => setEditingScoreUser(null)}>ยกเลิก</button>
+                    <button onClick={() => setEditingUser(null)}>ยกเลิก</button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setEditingScoreUser(p.id);
-                      setEditScore(p.score.toFixed(2));
-                    }}
-                  >
-                    แก้ไข
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setEditingUser(p.username);
+                        setEditScore(p.score.toFixed(2));
+                      }}
+                      style={{ marginRight: 8 }}
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(p.username)}
+                      style={{ backgroundColor: "#dd4b39", color: "white" }}
+                    >
+                      ลบ
+                    </button>
+                  </>
                 )}
               </td>
             </tr>
