@@ -1,93 +1,90 @@
 import React, { useState } from "react";
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { setDoc, doc, getDoc } from "firebase/firestore";
 
-export default function Login({ setPage, players, savePlayers, saveUser }) {
-  const [username, setUsername] = useState("");
+export default function Login({ setPage }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [badmintonName, setBadmintonName] = useState("");
-  const [password, setPassword] = useState(""); // เพิ่มรหัสผ่าน
   const [error, setError] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  // ลงทะเบียน
-  const handleRegister = () => {
-    if (!username.trim() || !badmintonName.trim() || !password.trim()) {
-      setError("กรุณากรอก Username, ชื่อในวงการ และ Password ให้ครบ");
+  // สมัครสมาชิกใหม่
+  const handleRegister = async () => {
+    setError("");
+    if (!email || !password || !badmintonName) {
+      setError("กรุณากรอก email, password และ ชื่อในวงการ");
       return;
     }
-    if (players[username]) {
-      setError("Username นี้มีคนใช้แล้ว");
-      return;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      // บันทึกข้อมูลผู้เล่นใน Firestore
+      await setDoc(doc(db, "players", user.uid), {
+        badmintonName,
+        score: 0,
+        email,
+      });
+      setPage("dashboard");
+    } catch (e) {
+      setError(e.message);
     }
-    // เก็บ username, badmintonName และ password ลง players
-    const newPlayers = {
-      ...players,
-      [username]: { badmintonName, password, score: 0 },
-    };
-    savePlayers(newPlayers);
-    saveUser({ username, badmintonName });
-    setPage("dashboard");
   };
 
   // เข้าสู่ระบบ
-  const handleLogin = () => {
-    if (!username.trim() || !password.trim()) {
-      setError("กรุณากรอก Username และ Password");
+  const handleLogin = async () => {
+    setError("");
+    if (!email || !password) {
+      setError("กรุณากรอก email และ password");
       return;
     }
-    if (!players[username]) {
-      setError("ไม่พบ Username นี้ กรุณาลงทะเบียนก่อน");
-      return;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      setPage("dashboard");
+    } catch (e) {
+      setError(e.message);
     }
-    if (players[username].password !== password) {
-      setError("รหัสผ่านไม่ถูกต้อง");
-      return;
-    }
-    saveUser({ username, badmintonName: players[username].badmintonName });
-    setPage("dashboard");
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 400,
-        margin: "auto",
-        padding: 20,
-        marginTop: 40,
-        border: "1px solid #ccc",
-        borderRadius: 8,
-      }}
-    >
-      <h2>ระบบสมัครสมาชิกแบดมินตัน</h2>
+    <div style={{ maxWidth: 400, margin: "auto", padding: 20, marginTop: 40, border: "1px solid #ccc", borderRadius: 8 }}>
+      <h2>{isRegistering ? "สมัครสมาชิก" : "เข้าสู่ระบบ"}</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
       <input
         style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value.trim())}
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value.trim())}
       />
       <input
         style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        placeholder="ชื่อในวงการแบด"
-        value={badmintonName}
-        onChange={(e) => setBadmintonName(e.target.value)}
-      />
-      <input
-        style={{ width: "100%", padding: 8, marginBottom: 12 }}
-        placeholder="Password"
         type="password"
+        placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      {isRegistering && (
+        <input
+          style={{ width: "100%", padding: 8, marginBottom: 12 }}
+          placeholder="ชื่อในวงการแบด"
+          value={badmintonName}
+          onChange={(e) => setBadmintonName(e.target.value)}
+        />
+      )}
       <button
         style={{ width: "100%", padding: 10, backgroundColor: "#2b6cb0", color: "white", marginBottom: 8 }}
-        onClick={handleRegister}
+        onClick={isRegistering ? handleRegister : handleLogin}
       >
-        ลงทะเบียน
+        {isRegistering ? "ลงทะเบียน" : "เข้าสู่ระบบ"}
       </button>
-      <button
-        style={{ width: "100%", padding: 10, backgroundColor: "#718096", color: "white" }}
-        onClick={handleLogin}
+      <p
+        style={{ cursor: "pointer", color: "#2b6cb0" }}
+        onClick={() => setIsRegistering(!isRegistering)}
       >
-        เข้าสู่ระบบ
-      </button>
+        {isRegistering ? "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" : "ยังไม่มีบัญชี? ลงทะเบียน"}
+      </p>
     </div>
   );
 }

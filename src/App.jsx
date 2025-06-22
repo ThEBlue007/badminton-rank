@@ -1,83 +1,74 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import AddResult from "./AddResult";
 import logo from "./assets/logo.png";
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // user object from firebase auth
+  const [playerData, setPlayerData] = useState(null); // user data from firestore
   const [page, setPage] = useState("login");
-  const [players, setPlayers] = useState({});
 
+  // Listen for auth state changes (login/logout)
   useEffect(() => {
-    const savedUser = localStorage.getItem("badmintonUser");
-    const savedPlayers = localStorage.getItem("badmintonPlayers");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setPage("dashboard");
-    }
-    if (savedPlayers) {
-      setPlayers(JSON.parse(savedPlayers));
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        // โหลดข้อมูลผู้เล่นจาก firestore
+        const docRef = doc(db, "players", firebaseUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setPlayerData(docSnap.data());
+          setPage("dashboard");
+        } else {
+          // ถ้ายังไม่มีข้อมูลผู้เล่นใน firestore
+          setPlayerData(null);
+          setPage("login");
+        }
+      } else {
+        setUser(null);
+        setPlayerData(null);
+        setPage("login");
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const savePlayers = (newPlayers) => {
-    setPlayers(newPlayers);
-    localStorage.setItem("badmintonPlayers", JSON.stringify(newPlayers));
-  };
+  if (page === "login") {
+    return (
+      <div style={{ textAlign: "center", marginTop: 40 }}>
+        <img src={logo} alt="โลโก้เว็บ" style={{ width: 150, marginBottom: 20 }} />
+        <h1>The Heavenly Kings of Badminton</h1>
+        <Login setPage={setPage} />
+      </div>
+    );
+  }
 
-  const saveUser = (userObj) => {
-    setUser(userObj);
-    localStorage.setItem("badmintonUser", JSON.stringify(userObj));
-  };
+  if (page === "dashboard" && user && playerData) {
+    return (
+      <Dashboard
+        user={user}
+        playerData={playerData}
+        setPage={setPage}
+        setPlayerData={setPlayerData}
+      />
+    );
+  }
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("badmintonUser");
-    setPage("login");
-  };
+  if (page === "addresult" && user && playerData) {
+    return (
+      <AddResult
+        user={user}
+        playerData={playerData}
+        setPage={setPage}
+        setPlayerData={setPlayerData}
+      />
+    );
+  }
 
-  const deleteAccount = () => {
-    if (user && players[user.username]) {
-      const updatedPlayers = { ...players };
-      delete updatedPlayers[user.username];
-      savePlayers(updatedPlayers);
-    }
-    logout();
-  };
-
-  return (
-    <div style={{ textAlign: "center", marginTop: 40 }}>
-      <img src={logo} alt="โลโก้เว็บ" style={{ width: 150, marginBottom: 20 }} />
-      <h1>The Heavenly Kings of Badminton</h1>
-      {!user && (
-        <Login
-          setPage={setPage}
-          players={players}
-          savePlayers={savePlayers}
-          saveUser={saveUser}  // ส่ง saveUser เข้าไป
-        />
-      )}
-
-      {user && page === "dashboard" && (
-        <Dashboard
-          user={user}
-          setPage={setPage}
-          players={players}
-          savePlayers={savePlayers}
-          logout={logout}
-          deleteAccount={deleteAccount}
-        />
-      )}
-
-      {user && page === "addresult" && (
-        <AddResult
-          user={user}
-          setPage={setPage}
-          players={players}
-          savePlayers={savePlayers}
-        />
-      )}
-    </div>
-  );
+  return <div>Loading...</div>;
 }
