@@ -1,3 +1,4 @@
+// Dashboard.jsx
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -12,6 +13,7 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
   const [players, setPlayers] = useState({});
   const [editingUid, setEditingUid] = useState(null);
   const [editScore, setEditScore] = useState("");
+  const [editBadmintonName, setEditBadmintonName] = useState(""); // เพิ่ม state สำหรับแก้ไขชื่อ
   const [loading, setLoading] = useState(true);
 
   // โหลดข้อมูลผู้เล่นทั้งหมดแบบเรียลไทม์
@@ -35,25 +37,34 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
     return () => unsubscribe();
   }, []);
 
-  // อัปเดตคะแนนใน Firestore
+  // อัปเดตคะแนนและชื่อใน Firestore
   const handleSave = async (uid) => {
     const scoreNum = parseFloat(editScore);
     if (isNaN(scoreNum) || scoreNum < 0) {
       alert("กรุณากรอกคะแนนให้ถูกต้อง");
       return;
     }
+    // เพิ่มการตรวจสอบชื่อ ถ้ามีการแก้ไขชื่อ
+    if (!editBadmintonName.trim()) {
+      alert("กรุณากรอกชื่อในวงการแบด");
+      return;
+    }
 
     try {
       const playerRef = doc(db, "players", uid);
-      await updateDoc(playerRef, { score: scoreNum });
+      await updateDoc(playerRef, {
+        score: scoreNum,
+        badmintonName: editBadmintonName // อัปเดตชื่อในวงการแบด
+      });
       if (uid === user.uid) {
         // อัปเดตข้อมูลของตัวเองด้วย
-        setPlayerData((prev) => ({ ...prev, score: scoreNum }));
+        setPlayerData((prev) => ({ ...prev, score: scoreNum, badmintonName: editBadmintonName }));
       }
       setEditingUid(null);
       setEditScore("");
+      setEditBadmintonName("");
     } catch (error) {
-      alert("เกิดข้อผิดพลาดในการอัปเดตคะแนน");
+      alert("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
       console.error(error);
     }
   };
@@ -66,6 +77,7 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
       try {
         await deleteDoc(doc(db, "players", uidToDelete));
         if (uidToDelete === user.uid) {
+          // หากลบ account ตัวเอง ให้ออกจากระบบด้วย
           await auth.signOut();
         }
       } catch (error) {
@@ -140,7 +152,18 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
               <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "center" }}>
                 {i + 1}
               </td>
-              <td style={{ border: "1px solid #ddd", padding: 8 }}>{p.badmintonName}</td>
+              <td style={{ border: "1px solid #ddd", padding: 8 }}>
+                {editingUid === p.uid ? (
+                  <input
+                    type="text" // เปลี่ยนเป็น text สำหรับชื่อ
+                    value={editBadmintonName}
+                    onChange={(e) => setEditBadmintonName(e.target.value)}
+                    style={{ width: "90%", textAlign: "left" }}
+                  />
+                ) : (
+                  p.badmintonName
+                )}
+              </td>
               <td style={{ border: "1px solid #ddd", padding: 8, textAlign: "right" }}>
                 {editingUid === p.uid ? (
                   <input
@@ -170,6 +193,7 @@ export default function Dashboard({ user, playerData, setPage, setPlayerData }) 
                       onClick={() => {
                         setEditingUid(p.uid);
                         setEditScore(p.score.toFixed(2));
+                        setEditBadmintonName(p.badmintonName); // ตั้งค่าชื่อปัจจุบันเมื่อเริ่มแก้ไข
                       }}
                       style={{ marginRight: 5 }}
                     >
